@@ -4,22 +4,38 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Go Trade Board - API Driven</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX transpilation -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- html2canvas for JPG export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #09090b; color: white; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b;
+            color: white;
+        }
+
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #09090b; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+
+        /* Animation utilities */
         .animate-in { animation: fadeIn 0.3s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -28,10 +44,50 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
 
+        // --- CONSTANTS ---
         const UNOWN_FORMS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'exclamation', 'question'];
+        
+        const BG_IMAGE_MAP = {
+            "dialga": "gotour2026diamond",
+            "dialga-origin": "gotour2026diamond",
+            "palkia": "gotour2026pearl",
+            "palkia-origin": "gotour2026pearl",
+            "venusaur": "gotour2026mega",
+            "charizard": "gotour2026mega",
+            "blastoise": "gotour2026mega",
+            "pidgeot": "gotour2026mega",
+            "victreebel": "gotour2026mega",
+            "kangaskhan": "gotour2026mega",
+            "scizor": "gotour2026mega",
+            "heracross": "gotour2026mega",
+            "tyranitar": "gotour2026mega",
+            "sceptile": "gotour2026mega",
+            "blaziken": "gotour2026mega",
+            "swampert": "gotour2026mega",
+            "gardevoir": "gotour2026mega",
+            "absol": "gotour2026mega",
+            "salamence": "gotour2026mega",
+            "metagross": "gotour2026mega",
+            "latias": "gotour2026mega",
+            "latios": "gotour2026mega",
+            "garchomp": "gotour2026mega",
+            "lucario": "gotour2026mega",
+            "gallade": "gotour2026mega",
+            "malamar": "gotour2026mega",
+            "necrozma": "ultra",
+            "solgaleo": "radiance",
+            "lunala": "umbra",
+            "kyogre": "wildarea",
+            "groudon": "roadtokalos",
+            "eevee": "seoul"
+        };
+
+        // --- COMPONENTS ---
 
         const Icon = ({ name, className = "w-4 h-4" }) => {
-            useEffect(() => { lucide.createIcons(); }, [name]);
+            useEffect(() => {
+                if (window.lucide) lucide.createIcons();
+            }, [name]);
             return <i data-lucide={name} className={className}></i>;
         };
 
@@ -50,7 +106,7 @@
             const [isShiny, setIsShiny] = useState(false);
             const [isLucky, setIsLucky] = useState(false);
             const [formState, setFormState] = useState('normal'); 
-            const [selectedAsset, setSelectedAsset] = useState(null); // The chosen asset from assetForms
+            const [selectedAsset, setSelectedAsset] = useState(null);
             const [showAssetList, setShowAssetList] = useState(false);
             const [customBackground, setCustomBackground] = useState('');
 
@@ -84,14 +140,26 @@
                 setSuggestions(filtered);
             }, [searchTerm, pokedex, selectedPoke]);
 
-            // Parse available costumes and backgrounds from API assetForms
+            // Fix for "replace is null" and safety enhancements
             const dynamicAssets = useMemo(() => {
                 if (!selectedPoke || !selectedPoke.assetForms) return [];
-                return selectedPoke.assetForms.map((af, index) => ({
-                    ...af,
-                    id: index,
-                    displayName: af.form.replace(selectedPoke.names.English.toUpperCase(), "").replace(/_/g, " ").trim() || "Standard"
-                }));
+                const speciesName = String(selectedPoke.names?.English || "").toUpperCase();
+                
+                return selectedPoke.assetForms.map((af, index) => {
+                    const formStr = String(af.form || "");
+                    let displayName = "Standard";
+                    
+                    if (formStr) {
+                        displayName = formStr.replace(speciesName, "").replace(/_/g, " ").trim();
+                        if (!displayName) displayName = "Standard";
+                    }
+
+                    return {
+                        ...af,
+                        id: index,
+                        displayName
+                    };
+                });
             }, [selectedPoke]);
 
             const selectPokemon = (p) => {
@@ -123,10 +191,6 @@
             const addPokemon = () => {
                 if (!selectedPoke) return;
 
-                // Priority Image Logic:
-                // 1. Selected Asset Form Image (from API)
-                // 2. Default API Image
-                // 3. GitHub Asset Archive (Fallback in Card component)
                 let finalImg = isShiny ? selectedPoke.shinyImage : selectedPoke.image;
                 if (selectedAsset) {
                     finalImg = isShiny ? (selectedAsset.shinyImage || selectedAsset.image) : selectedAsset.image;
@@ -136,18 +200,16 @@
                     id: Date.now(),
                     name: String(selectedPoke.names.English) + (selectedPoke.names.English.includes("Unown") ? ` (${unownLetter.toUpperCase()})` : ""),
                     isShiny, isLucky, formState,
-                    costumeName: selectedAsset?.costume ? selectedAsset.displayName : "",
-                    backgroundName: selectedAsset?.form?.includes("LOCATION") || selectedAsset?.form?.includes("SPECIAL") ? selectedAsset.displayName : customBackground,
+                    costumeName: selectedAsset?.costume ? String(selectedAsset.displayName) : "",
+                    backgroundName: (selectedAsset?.form?.includes("LOCATION") || selectedAsset?.form?.includes("SPECIAL")) ? String(selectedAsset.displayName) : String(customBackground),
                     imgUrl: finalImg,
                     dexId: selectedPoke.dex,
-                    // Pre-calculated fallback for the card if API image fails
                     fallbackUrl: `https://raw.githubusercontent.com/RetroJohn86/Pokemon-Go-Assets-Archive-Sprites/main/Sprites/pokemon_icon_${String(selectedPoke.dex).padStart(3, '0')}_00${isShiny ? '_shiny' : ''}.png`
                 };
 
                 if (activeSection === 'wanted') setWantedList(prev => [...prev, entry]);
                 else setOfferedList(prev => [...prev, entry]);
 
-                // Reset
                 setSearchTerm(''); setSelectedPoke(null); setSelectedAsset(null); setCustomBackground(''); setFormState('normal'); setIsShiny(false); setIsLucky(false);
             };
 
@@ -158,6 +220,12 @@
 
             const PokemonCard = ({ item, onRemove }) => (
                 <div className={`relative group flex flex-col items-center p-4 border-2 transition-all hover:border-white cursor-pointer min-h-[240px] overflow-hidden ${item.isLucky ? 'bg-orange-500/10 border-orange-500/50 shadow-[0_0_15px_rgba(249,115,22,0.2)]' : 'bg-zinc-800 border-zinc-700'}`} onClick={onRemove}>
+                    {item.bgUrl && (
+                        <div className="absolute inset-0 z-0">
+                            <img src={item.bgUrl} crossOrigin="anonymous" className="w-full h-full object-cover opacity-60 brightness-75 scale-110" alt="" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                        </div>
+                    )}
                     <div className="absolute top-2 right-2 flex flex-col gap-1.5 z-20">
                         {item.isShiny && <Icon name="sparkles" className="w-5 h-5 text-yellow-400" />}
                         {item.isLucky && <Icon name="zap" className="w-5 h-5 text-orange-400" />}
@@ -207,12 +275,12 @@
                                         </div>
                                         {suggestions.length > 0 && (
                                             <div className="absolute z-50 w-full mt-1 bg-zinc-800 border-2 border-zinc-700 shadow-2xl max-h-80 overflow-y-auto custom-scrollbar">
-                                                {suggestions.map(s => <button key={s.id} onClick={() => selectPokemon(s)} className="w-full text-left px-4 py-3 hover:bg-zinc-700 text-sm border-b border-zinc-700 font-black uppercase flex items-center justify-between group transition-colors"><span className="text-zinc-100">{String(s.names.English)}</span><Icon name="chevron-right" className="w-4 h-4 text-zinc-500 group-hover:text-blue-500" /></button>)}
+                                                {suggestions.map(s => <button key={s.id} onClick={() => selectPokemon(s)} className="w-full text-left px-4 py-3 hover:bg-zinc-700 text-sm border-b border-zinc-700 font-black uppercase flex items-center justify-between group transition-colors"><span className="text-zinc-100">{String(s.names?.English || "Unknown")}</span><Icon name="chevron-right" className="w-4 h-4 text-zinc-500 group-hover:text-blue-500" /></button>)}
                                             </div>
                                         )}
                                     </div>
 
-                                    {selectedPoke && String(selectedPoke.names.English).includes('Unown') && (
+                                    {selectedPoke && String(selectedPoke.names?.English).includes('Unown') && (
                                         <div className="animate-in p-2 bg-zinc-950 border border-zinc-800">
                                             <label className="text-[10px] font-black text-blue-400 uppercase mb-2 block tracking-widest italic">Pick Letter</label>
                                             <div className="grid grid-cols-7 gap-1">
@@ -252,7 +320,7 @@
                                             <label className="text-[10px] font-black text-zinc-400 uppercase mb-1 block tracking-widest">Asset Variant (Costume/Background)</label>
                                             <div className="relative">
                                                 <Icon name="package" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                                                <input readOnly type="text" value={selectedAsset ? selectedAsset.displayName : ""} onClick={() => setShowAssetList(!showAssetList)} className="w-full pl-10 pr-10 py-3 bg-zinc-800 border border-zinc-700 outline-none focus:border-blue-500 text-xs font-bold uppercase cursor-pointer" placeholder="Select asset form..." />
+                                                <input readOnly type="text" value={String(selectedAsset ? selectedAsset.displayName : "")} onClick={() => setShowAssetList(!showAssetList)} className="w-full pl-10 pr-10 py-3 bg-zinc-800 border border-zinc-700 outline-none focus:border-blue-500 text-xs font-bold uppercase cursor-pointer" placeholder="Select asset form..." />
                                                 <Icon name="chevron-down" className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500" />
                                             </div>
                                             {showAssetList && dynamicAssets.length > 0 && (
@@ -260,7 +328,7 @@
                                                     {dynamicAssets.map(asset => (
                                                         <button key={asset.id} onClick={() => { setSelectedAsset(asset); setShowAssetList(false); }} className="w-full text-left px-4 py-2 hover:bg-zinc-700 text-[10px] border-b border-zinc-700 font-black uppercase text-zinc-100 flex items-center gap-3">
                                                             <img src={isShiny ? (asset.shinyImage || asset.image) : asset.image} className="w-8 h-8 object-contain" crossOrigin="anonymous" />
-                                                            {asset.displayName}
+                                                            {String(asset.displayName)}
                                                         </button>
                                                     ))}
                                                     <button onClick={() => { setSelectedAsset(null); setShowAssetList(false); }} className="w-full text-left px-4 py-2 hover:bg-zinc-700 text-[10px] font-black uppercase text-zinc-400 italic">Standard Form</button>
@@ -290,7 +358,7 @@
                                         <div className="flex items-center gap-4 bg-red-600 px-6 py-3 shadow-xl"><Icon name="search" className="w-8 h-8 text-white" /><h3 className="text-3xl font-black text-white uppercase italic tracking-widest text-center">WANTED</h3></div>
                                         <div className="grid grid-cols-4 gap-4 bg-zinc-900/50 p-4 border-2 border-zinc-800">
                                             {wantedList.map(item => <PokemonCard key={item.id} item={item} onRemove={() => removeItem(item.id, 'wanted')} />)}
-                                            {wantedList.length === 0 && <div className="col-span-full h-40 flex items-center justify-center text-zinc-700 font-black uppercase text-xl tracking-[0.5em] border-4 border-dashed border-zinc-900 bg-zinc-950">EMPTY</div>}
+                                            {wantedList.length === 0 && <div className="col-span-full h-40 flex items-center justify-center text-zinc-800 font-black uppercase text-xl tracking-[0.5em] border-4 border-dashed border-zinc-900 bg-zinc-950">EMPTY</div>}
                                         </div>
                                     </div>
                                     <div className="space-y-5 flex-1">
