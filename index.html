@@ -103,7 +103,7 @@
             const [pokedex, setPokedex] = useState([]);
             const [selectedPoke, setSelectedPoke] = useState(null); 
 
-            // Sequential States
+            // Sequential Flow States
             const [unownLetter, setUnownLetter] = useState('a');
             const [selectedCostume, setSelectedCostume] = useState(null);
             const [selectedBgAsset, setSelectedBgAsset] = useState(null);
@@ -112,7 +112,7 @@
             const [formState, setFormState] = useState('normal'); 
             const [customBackground, setCustomBackground] = useState('');
 
-            // UI Dropdown States
+            // UI States
             const [showCostumeList, setShowCostumeList] = useState(false);
             const [showBgList, setShowBgList] = useState(false);
 
@@ -134,7 +134,6 @@
                 } catch (err) { console.error("Export failed", err); }
             };
 
-            // Initial API Fetch
             useEffect(() => {
                 const loadData = async () => {
                     setIsLoading(true);
@@ -148,7 +147,6 @@
                 loadData();
             }, []);
 
-            // Search Results
             useEffect(() => {
                 if (searchTerm.length < 2 || (selectedPoke && searchTerm === selectedPoke.names.English)) {
                     setSuggestions([]);
@@ -162,21 +160,23 @@
                 setSuggestions(filtered);
             }, [searchTerm, pokedex, selectedPoke]);
 
-            // Modular Asset Processing
             const assetGroups = useMemo(() => {
                 if (!selectedPoke || !selectedPoke.assetForms) return { costumes: [], backgrounds: [] };
                 const speciesName = String(selectedPoke.names?.English || "").toUpperCase();
                 
                 const all = selectedPoke.assetForms.map((af, index) => {
                     const formStr = String(af.form || "");
-                    let displayName = formStr.replace(speciesName, "").replace(/_/g, " ").trim();
-                    if (!displayName) displayName = "Standard";
-                    return { ...af, id: index, displayName };
+                    let displayName = "Standard";
+                    if (formStr) {
+                        displayName = formStr.replace(speciesName, "").replace(/_/g, " ").trim();
+                        if (!displayName) displayName = "Standard";
+                    }
+                    return { ...af, id: index, displayName, formName: formStr };
                 });
 
                 return {
                     costumes: all.filter(a => a.costume),
-                    backgrounds: all.filter(a => a.form.includes("LOCATION") || a.form.includes("SPECIAL"))
+                    backgrounds: all.filter(a => a.formName && (a.formName.includes("LOCATION") || a.formName.includes("SPECIAL")))
                 };
             }, [selectedPoke]);
 
@@ -199,7 +199,8 @@
                 const baseId = selectedPoke.dex;
                 const paddedId = String(baseId).padStart(3, '0');
                 
-                // Form ID Logic for GitHub Menu Icons
+                // --- SPRITE RESOLUTION ---
+                // GitHub Archive Logic (Authentic GO storage style)
                 let goFormId = "00";
                 if (name.includes("Origin")) goFormId = "61";
                 else if (name.includes("Alolan")) goFormId = "12";
@@ -208,9 +209,9 @@
 
                 const githubUrl = `https://raw.githubusercontent.com/RetroJohn86/Pokemon-Go-Assets-Archive-Sprites/main/Sprites/pokemon_icon_${paddedId}_${goFormId}${isShiny ? '_shiny' : ''}.png`;
 
-                // Prioritize Images: 
-                // 1. costume selection image
-                // 2. background selection image
+                // Logic for primary image:
+                // 1. costume selection image from API
+                // 2. background selection image from API
                 // 3. github archive (base forms)
                 let finalImg = githubUrl;
                 if (selectedCostume) {
@@ -219,7 +220,7 @@
                     finalImg = isShiny ? (selectedBgAsset.shinyImage || selectedBgAsset.image) : selectedBgAsset.image;
                 }
 
-                // High-res fallback (Home)
+                // Ultimate Fallback: Home 3D Sprite
                 const spriteType = isShiny ? 'shiny' : 'normal';
                 let homeName = name.toLowerCase().replace(/ /g, "-").replace(/[()]/g, "");
                 if (name.includes("Unown")) homeName = `unown-${unownLetter}`;
@@ -240,6 +241,7 @@
                 if (activeSection === 'wanted') setWantedList(prev => [...prev, entry]);
                 else setOfferedList(prev => [...prev, entry]);
 
+                // Reset config
                 setSearchTerm(''); setSelectedPoke(null); setSelectedCostume(null); setSelectedBgAsset(null); setCustomBackground(''); setFormState('normal'); setIsShiny(false); setIsLucky(false);
             };
 
@@ -286,19 +288,11 @@
                 return !!(selectedPoke.shinyAvailable || selectedPoke.shinyImage);
             }, [selectedPoke, selectedCostume, selectedBgAsset]);
 
-            const isMegaEligible = selectedPoke?.tempEvolutions?.length > 0;
-            const isDynamaxEligible = selectedPoke?.dex <= 1000;
-
             return (
-                <div className="min-h-screen text-zinc-100 pb-12 selection:bg-blue-500">
+                <div className="min-h-screen text-zinc-100 pb-12">
                     <div className="bg-zinc-900 border-b-4 border-blue-500 px-6 py-4 sticky top-0 z-40 flex items-center justify-between shadow-2xl">
-                        <div className="flex items-center gap-2">
-                            <Icon name="star" className="w-6 h-6 text-blue-500" />
-                            <h1 className="text-2xl font-black tracking-tighter uppercase italic text-zinc-100">Go Trade Board</h1>
-                        </div>
-                        <button onClick={handleExport} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 px-6 py-2 text-sm font-black uppercase shadow-lg active:translate-y-0.5 transition-all">
-                            <Icon name="download" className="w-4 h-4" /> <span>Save Board</span>
-                        </button>
+                        <div className="flex items-center gap-2"><Icon name="star" className="w-6 h-6 text-blue-500" /><h1 className="text-2xl font-black tracking-tighter uppercase italic text-zinc-100">Go Trade Board</h1></div>
+                        <button onClick={handleExport} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 px-6 py-2 text-sm font-black uppercase shadow-lg active:translate-y-0.5 transition-all"><Icon name="download" className="w-4 h-4" /> <span>Save Board</span></button>
                     </div>
 
                     <div className="max-w-7xl mx-auto p-4 lg:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -306,8 +300,8 @@
                             <section className="bg-zinc-900 p-6 border-l-4 border-blue-500 shadow-xl space-y-8">
                                 
                                 {/* Step 1: List Type */}
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block tracking-tighter italic">Step 1. Target List</label>
+                                <div className="space-y-2 z-[60] relative">
+                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block italic tracking-tighter">Step 1. Target List</label>
                                     <div className="grid grid-cols-2 gap-2 p-1 bg-zinc-950 border border-zinc-800">
                                         <button onClick={() => setActiveSection('wanted')} className={`py-3 text-[10px] font-black transition-all ${activeSection === 'wanted' ? 'bg-red-600 text-white' : 'text-zinc-600 hover:text-zinc-300'}`}>LOOKING FOR</button>
                                         <button onClick={() => setActiveSection('offered')} className={`py-3 text-[10px] font-black transition-all ${activeSection === 'offered' ? 'bg-emerald-600 text-white' : 'text-zinc-600 hover:text-zinc-300'}`}>FOR TRADE</button>
@@ -315,30 +309,30 @@
                                 </div>
 
                                 {/* Step 2: Search */}
-                                <div className="space-y-2 relative">
-                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block tracking-tighter italic">Step 2. Select Pokémon</label>
+                                <div className="space-y-2 relative z-[50]">
+                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block italic tracking-tighter">Step 2. Select Pokémon</label>
                                     <div className="relative">
                                         <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                                         <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-4 bg-zinc-800 border border-zinc-700 outline-none focus:border-blue-500 text-sm font-bold uppercase transition-all" placeholder="Enter species name..." />
                                         {selectedPoke && <Icon name="check" className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 w-5 h-5" />}
                                     </div>
                                     {suggestions.length > 0 && (
-                                        <div className="absolute z-50 w-full mt-1 bg-zinc-800 border-2 border-zinc-700 shadow-2xl max-h-60 overflow-y-auto custom-scrollbar">
-                                            {suggestions.map(s => <button key={s.id} onClick={() => selectPokemon(s)} className="w-full text-left px-4 py-3 hover:bg-zinc-700 text-sm border-b border-zinc-700 font-black uppercase flex items-center justify-between group transition-colors"><span className="text-zinc-100">{String(s.names?.English || "Unknown")}</span><Icon name="right" className="w-4 h-4 text-zinc-500 group-hover:text-blue-500" /></button>)}
+                                        <div className="absolute z-[100] w-full mt-1 bg-zinc-800 border-2 border-zinc-700 shadow-2xl max-h-60 overflow-y-auto custom-scrollbar">
+                                            {suggestions.map(s => <button key={s.id} onClick={() => selectPokemon(s)} className="w-full text-left px-4 py-3 hover:bg-zinc-700 text-sm border-b border-zinc-700 font-black uppercase flex items-center justify-between transition-colors"><span className="text-zinc-100">{String(s.names?.English || "Unknown")}</span><Icon name="right" className="w-4 h-4 text-zinc-500" /></button>)}
                                         </div>
                                     )}
                                 </div>
 
                                 {/* Step 3: Game Asset */}
-                                <div className={`space-y-2 relative transition-all ${selectedPoke ? 'step-active' : 'step-inactive'}`}>
-                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block tracking-tighter italic">Step 3. Check Game Asset (Costume/Event)</label>
+                                <div className={`space-y-2 relative z-[40] transition-all ${selectedPoke ? 'step-active' : 'step-inactive'}`}>
+                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block italic tracking-tighter">Step 3. Check Game Asset (Costume/Event)</label>
                                     <div className="relative">
                                         <Icon name="package" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                                        <input readOnly type="text" value={String(selectedCostume ? selectedCostume.displayName : "No Costume Detected")} onClick={() => setShowCostumeList(!showCostumeList)} className="w-full pl-10 pr-10 py-4 bg-zinc-800 border border-zinc-700 outline-none focus:border-blue-500 text-xs font-bold uppercase cursor-pointer transition-colors" placeholder="Check for costumes..." />
+                                        <input readOnly type="text" value={String(selectedCostume ? selectedCostume.displayName : "No Costume Detected")} onClick={() => setShowCostumeList(!showCostumeList)} className="w-full pl-10 pr-10 py-4 bg-zinc-800 border border-zinc-700 outline-none focus:border-blue-500 text-xs font-bold uppercase cursor-pointer transition-colors" />
                                         <Icon name="down" className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500" />
                                     </div>
                                     {showCostumeList && (
-                                        <div className="absolute z-50 w-full mt-1 bg-zinc-950 border-2 border-zinc-700 shadow-2xl max-h-48 overflow-y-auto custom-scrollbar">
+                                        <div className="absolute z-[100] w-full mt-1 bg-zinc-950 border-2 border-zinc-700 shadow-2xl max-h-48 overflow-y-auto custom-scrollbar">
                                             {assetGroups.costumes.map(asset => (
                                                 <button key={asset.id} onClick={() => { setSelectedCostume(asset); setShowCostumeList(false); }} className="w-full text-left px-4 py-2 hover:bg-zinc-800 text-[10px] border-b border-zinc-800 font-black uppercase text-zinc-400 hover:text-zinc-100 flex items-center gap-3 transition-colors">
                                                     <img src={asset.image} className="w-8 h-8 object-contain" crossOrigin="anonymous" />
@@ -351,15 +345,15 @@
                                 </div>
 
                                 {/* Step 4: Background */}
-                                <div className={`space-y-2 relative transition-all ${selectedPoke ? 'step-active' : 'step-inactive'}`}>
-                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block tracking-tighter italic">Step 4. Special Background</label>
+                                <div className={`space-y-2 relative z-[30] transition-all ${selectedPoke ? 'step-active' : 'step-inactive'}`}>
+                                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block italic tracking-tighter">Step 4. Special Background</label>
                                     <div className="relative">
                                         <Icon name="image" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                                        <input readOnly type="text" value={String(selectedBgAsset ? selectedBgAsset.displayName : customBackground || "Standard Background")} onClick={() => setShowBgList(!showBgList)} className="w-full pl-10 pr-10 py-4 bg-zinc-800 border border-zinc-700 outline-none focus:border-blue-500 text-xs font-bold uppercase cursor-pointer" placeholder="Check for special BG..." />
+                                        <input readOnly type="text" value={String(selectedBgAsset ? selectedBgAsset.displayName : customBackground || "Check for special BG...")} onClick={() => setShowBgList(!showBgList)} className="w-full pl-10 pr-10 py-4 bg-zinc-800 border border-zinc-700 outline-none focus:border-blue-500 text-xs font-bold uppercase cursor-pointer" />
                                         <Icon name="down" className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500" />
                                     </div>
                                     {showBgList && (
-                                        <div className="absolute z-50 w-full mt-1 bg-zinc-950 border-2 border-zinc-700 shadow-2xl max-h-48 overflow-y-auto custom-scrollbar">
+                                        <div className="absolute z-[100] w-full mt-1 bg-zinc-950 border-2 border-zinc-700 shadow-2xl max-h-48 overflow-y-auto custom-scrollbar">
                                             {assetGroups.backgrounds.map(asset => (
                                                 <button key={asset.id} onClick={() => { setSelectedBgAsset(asset); setCustomBackground(''); setShowBgList(false); }} className="w-full text-left px-4 py-2 hover:bg-zinc-800 text-[10px] border-b border-zinc-800 font-black uppercase text-zinc-400 hover:text-zinc-100 flex items-center gap-3">
                                                     <img src={asset.image} className="w-8 h-8 object-contain" crossOrigin="anonymous" />
@@ -369,48 +363,45 @@
                                             <button onClick={() => { setSelectedBgAsset(null); setShowBgList(false); }} className="w-full text-left px-4 py-2 hover:bg-zinc-800 text-[10px] font-black uppercase text-zinc-600 italic">Reset Background</button>
                                         </div>
                                     )}
-                                    <input type="text" value={customBackground} onChange={(e) => { setCustomBackground(e.target.value); setSelectedBgAsset(null); }} className="w-full px-4 py-2 bg-zinc-950 border border-zinc-800 outline-none focus:border-blue-500 text-[10px] font-bold uppercase mt-1" placeholder="Or enter manual location (e.g. NYC)..." />
+                                    <input type="text" value={customBackground} onChange={(e) => { setCustomBackground(e.target.value); setSelectedBgAsset(null); }} className="w-full px-4 py-2 bg-zinc-950 border border-zinc-800 outline-none focus:border-blue-500 text-[10px] font-bold uppercase mt-1" placeholder="Manual BG Note..." />
                                 </div>
 
-                                {/* Step 5: Shiny / Extra Config */}
-                                <div className={`space-y-6 pt-4 border-t border-zinc-800 transition-all ${selectedPoke ? 'step-active' : 'step-inactive'}`}>
+                                {/* Step 5: Shiny / Extra */}
+                                <div className={`space-y-6 pt-4 border-t border-zinc-800 z-[20] relative transition-all ${selectedPoke ? 'step-active' : 'step-inactive'}`}>
+                                    <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest block italic tracking-tighter">Step 5. Finishing Touches</label>
                                     <div className="grid grid-cols-2 gap-2">
                                         {canBeShiny && (
-                                            <button onClick={() => setIsShiny(!isShiny)} className={`flex items-center justify-center gap-2 py-3 border-2 transition-all ${isShiny ? 'bg-yellow-500/10 border-yellow-500 text-yellow-500 shadow-[inset_0_0_10px_rgba(234,179,8,0.2)]' : 'bg-zinc-800 border-zinc-700 text-zinc-600'}`}>
-                                                <Icon name="sparkles" />
-                                                <span className="text-[10px] font-black uppercase tracking-widest">Shiny</span>
+                                            <button onClick={() => setIsShiny(!isShiny)} className={`flex items-center justify-center gap-2 py-3 border-2 transition-all ${isShiny ? 'bg-yellow-500/10 border-yellow-500 text-yellow-500' : 'bg-zinc-800 border-zinc-700 text-zinc-600'}`}>
+                                                <Icon name="sparkles" /> <span className="text-[10px] font-black uppercase">Shiny</span>
                                             </button>
                                         )}
                                         <button onClick={() => setIsLucky(!isLucky)} className={`flex items-center justify-center gap-2 py-3 border-2 transition-all ${isLucky ? 'bg-orange-500/10 border-orange-500 text-orange-500 shadow-[inset_0_0_10px_rgba(249,115,22,0.2)]' : 'bg-zinc-800 border-zinc-700 text-zinc-600'}`}>
-                                            <Icon name="zap" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest">Lucky</span>
+                                            <Icon name="zap" /> <span className="text-[10px] font-black uppercase">Lucky</span>
                                         </button>
                                     </div>
 
                                     {(selectedPoke?.tempEvolutions?.length > 0 || selectedPoke?.dex <= 1000) && (
                                         <select value={formState} onChange={(e) => setFormState(e.target.value)} className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 outline-none focus:border-blue-500 text-xs font-bold uppercase cursor-pointer" >
-                                            <option value="normal">Default Combat Form</option>
+                                            <option value="normal">Standard Form</option>
                                             {selectedPoke?.dex <= 1000 && <option value="dynamax">Dynamax</option>}
                                             {selectedPoke?.dex <= 1000 && <option value="gigantamax">Gigantamax</option>}
                                             {selectedPoke?.tempEvolutions?.length > 0 && <option value="mega">Mega Evolution</option>}
                                         </select>
                                     )}
 
-                                    <button onClick={addPokemon} disabled={!selectedPoke} className={`w-full py-5 font-black uppercase tracking-[0.2em] transition-all active:scale-95 flex flex-col items-center justify-center gap-0.5 shadow-2xl ${selectedPoke ? 'bg-white text-black hover:bg-blue-500 hover:text-white' : 'bg-zinc-800 text-zinc-700 cursor-not-allowed'}`}>
-                                        <Icon name="star" className="w-6 h-6 mb-1" />
-                                        <span className="text-sm">ADD TO BOARD</span>
+                                    <button onClick={addPokemon} className="w-full py-5 font-black bg-white text-black hover:bg-blue-600 hover:text-white transition-all uppercase tracking-widest flex items-center justify-center gap-2 shadow-2xl">
+                                        <Icon name="star" className="w-6 h-6 mb-0.5" /> ADD TO BOARD
                                     </button>
                                 </div>
                             </section>
                         </div>
 
-                        <div className="lg:col-span-8 overflow-hidden" id="board-section">
+                        <div className="lg:col-span-8">
                             <div className="overflow-x-auto pb-8">
                                 <div ref={exportRef} id="export-board" className="bg-zinc-950 p-10 border-[20px] border-zinc-900 flex flex-col gap-12 mx-auto">
                                     <div className="flex flex-col items-center">
-                                        <h2 className="text-7xl font-black text-white tracking-tighter uppercase italic leading-none border-b-[12px] border-blue-600 pb-3 text-center">TRADE LIST</h2>
+                                        <h2 className="text-7xl font-black text-white tracking-tighter uppercase italic leading-none border-b-[12px] border-blue-600 pb-3 text-center tracking-tighter">TRADE LIST</h2>
                                     </div>
-                                    
                                     <div className="space-y-5">
                                         <div className="flex items-center gap-4 bg-red-600 px-6 py-3 shadow-xl">
                                             <Icon name="search" className="w-8 h-8 text-white" />
@@ -421,7 +412,6 @@
                                             {wantedList.length === 0 && <div className="col-span-full h-40 flex items-center justify-center text-zinc-800 font-black uppercase text-xl tracking-[0.5em] border-4 border-dashed border-zinc-900 bg-zinc-950">EMPTY</div>}
                                         </div>
                                     </div>
-
                                     <div className="space-y-5 flex-1">
                                         <div className="flex items-center gap-4 bg-emerald-600 px-6 py-3 shadow-xl">
                                             <Icon name="zap" className="w-8 h-8 text-white" />
@@ -432,12 +422,11 @@
                                             {offeredList.length === 0 && <div className="col-span-full h-40 flex items-center justify-center text-zinc-800 font-black uppercase text-xl tracking-[0.5em] border-4 border-dashed border-zinc-900 bg-zinc-950">EMPTY</div>}
                                         </div>
                                     </div>
-
                                     <div className="flex items-center justify-between pt-10 border-t-4 border-zinc-900">
-                                        <div className="flex gap-2 text-zinc-700">
-                                            {[...Array(6)].map((_, i) => <div key={i} className="w-8 h-1 bg-current opacity-20"></div>)}
+                                        <div className="flex gap-2 opacity-20">
+                                            {[...Array(6)].map((_, i) => <div key={i} className="w-8 h-1 bg-white"></div>)}
                                         </div>
-                                        <p className="text-zinc-700 text-xs font-black uppercase tracking-[0.5em] italic">MODULAR_FLOW_V33.0</p>
+                                        <p className="text-zinc-700 text-xs font-black uppercase tracking-[0.5em] italic">MODULAR_FLOW_V35.0</p>
                                     </div>
                                 </div>
                             </div>
