@@ -12,11 +12,6 @@
     <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Firebase Compat SDKs (Required for standalone HTML without a build step) -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; }
@@ -37,7 +32,7 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        // Inline SVG Icons to replace Lucide library and fix forwardRef errors
+        // Inline SVG Icons
         const Icon = ({ name, className = "w-5 h-5", fill = "none" }) => {
             const icons = {
                 Trash2: <path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2m-6 5v6m4-6v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
@@ -46,13 +41,11 @@
                 Star: <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill={fill}/>,
                 Plus: <path d="M12 5v14m-7-7h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
                 Download: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4m4-5 5 5 5-5m-5 5V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
-                Info: <path d="M12 16v-4m0-4h.01M22 12A10 10 0 1 1 2 12a10 10 0 0 1 20 0Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
                 Search: <path d="M21 21l-4.35-4.35M19 11A8 8 0 1 1 3 11a8 8 0 0 1 16 0Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
                 X: <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
                 ChevronDown: <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
                 Copy: <path d="M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2ZM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
                 Check: <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
-                Share2: <path d="M18 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-12 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm12 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-9.3-11.7l6.6-3.6m-6.6 9.6l6.6 3.6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
                 Loader2: <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin origin-center"/>
             };
             return (
@@ -62,21 +55,7 @@
             );
         };
 
-        // Configuration and Initialization
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            // Note: If running locally outside this environment, paste your Firebase config object here.
-        };
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const initialToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
         const API_URL = 'https://pokemon-go-api.github.io/pokemon-go-api/api/pokedex.json';
-
-        // Firebase Initialization using Compat mode
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
-        const auth = firebase.auth();
-        const db = firebase.firestore();
 
         const PokemonCard = ({ item, onRemove }) => {
             const getBgClass = () => {
@@ -124,9 +103,6 @@
         const App = () => {
             const [pokedex, setPokedex] = useState([]);
             const [loading, setLoading] = useState(true);
-            const [user, setUser] = useState(null);
-            const [isSaving, setIsSaving] = useState(false);
-            const [shareUrl, setShareUrl] = useState("");
 
             const [searchTerm, setSearchTerm] = useState("");
             const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -142,41 +118,16 @@
             const [copiedType, setCopiedType] = useState(null);
 
             useEffect(() => {
-                const initAuth = async () => {
-                    try {
-                        if (initialToken) {
-                            await auth.signInWithCustomToken(initialToken);
-                        } else {
-                            await auth.signInAnonymously();
-                        }
-                    } catch (err) { console.error("Auth failed", err); }
-                };
-                initAuth();
-                const unsubscribe = auth.onAuthStateChanged(setUser);
-                return () => unsubscribe();
-            }, []);
-
-            useEffect(() => {
                 const fetchData = async () => {
                     try {
                         const response = await fetch(API_URL);
                         const data = await response.json();
                         setPokedex(data);
-
-                        const params = new URLSearchParams(window.location.search);
-                        const boardId = params.get('board');
-                        
-                        if (boardId) {
-                            const boardRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('boards').doc(boardId);
-                            const boardSnap = await boardRef.get();
-                            if (boardSnap.exists()) {
-                                const boardData = boardSnap.data();
-                                setHaveList(boardData.haveList || []);
-                                setNeedList(boardData.needList || []);
-                            }
-                        }
                         setLoading(false);
-                    } catch (err) { console.error("Fetch failed", err); setLoading(false); }
+                    } catch (err) { 
+                        console.error("Fetch failed", err); 
+                        setLoading(false); 
+                    }
                 };
                 fetchData();
             }, []);
@@ -277,25 +228,6 @@
                 else setNeedList(prev => prev.filter(item => item.id !== id));
             };
 
-            const saveAndShareBoard = async () => {
-                if (!user) return;
-                setIsSaving(true);
-                const boardId = crypto.randomUUID().split('-')[0];
-                const boardRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('boards').doc(boardId);
-                try {
-                    await boardRef.set({ haveList, needList, createdAt: Date.now() });
-                    const url = `${window.location.origin}${window.location.pathname}?board=${boardId}`;
-                    setShareUrl(url);
-                    const el = document.createElement('textarea');
-                    el.value = url;
-                    document.body.appendChild(el);
-                    el.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(el);
-                } catch (err) { console.error("Save failed", err); }
-                finally { setIsSaving(false); }
-            };
-
             useEffect(() => {
                 const handleClickOutside = (event) => {
                     if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -310,7 +242,7 @@
                 <div className="flex items-center justify-center h-screen bg-slate-50 text-slate-800 font-black italic uppercase tracking-widest text-center">
                     <div className="flex flex-col items-center gap-4">
                         <Icon name="Loader2" className="w-12 h-12 text-blue-600" />
-                        <span className="animate-pulse">Loading Assets...</span>
+                        <span className="animate-pulse">Loading Pokedex...</span>
                     </div>
                 </div>
             );
@@ -323,7 +255,7 @@
                             <div className="relative group">
                                 <input 
                                     type="text"
-                                    placeholder="Pokemon name..."
+                                    placeholder="Search name or #"
                                     className="w-full pl-10 pr-10 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-bold placeholder:text-slate-400 text-slate-800"
                                     value={searchTerm}
                                     onChange={(e) => { setSearchTerm(e.target.value); setIsDropdownOpen(true); }}
@@ -369,7 +301,7 @@
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Variant Select</label>
                                     <div className="relative">
-                                        <select className="w-full p-3.5 bg-white border border-slate-200 rounded-2xl outline-none text-slate-700 font-black uppercase italic tracking-tighter text-sm cursor-pointer shadow-sm appearance-none" value={selectedVariantId} onChange={(e) => setSelectedVariantId(e.target.value)}>
+                                        <select className="w-full p-3.5 bg-white border border-slate-200 rounded-2xl outline-none text-slate-700 font-black uppercase italic tracking-tighter text-sm cursor-pointer shadow-sm appearance-none focus:border-blue-500 transition-colors" value={selectedVariantId} onChange={(e) => setSelectedVariantId(e.target.value)}>
                                             {variantOptions.map(v => <option key={v.id} value={v.id}>{String(v.label || "")}</option>)}
                                         </select>
                                         <Icon name="ChevronDown" className="absolute right-4 top-4 text-slate-400 pointer-events-none w-4 h-4" />
@@ -397,16 +329,8 @@
 
                     <main className="flex-1 p-6 md:p-12 overflow-y-auto bg-slate-100 relative">
                         <div className="absolute top-6 right-6 flex items-center gap-3 print:hidden">
-                            <button 
-                                onClick={saveAndShareBoard}
-                                disabled={isSaving || (haveList.length === 0 && needList.length === 0)}
-                                className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all shadow-lg disabled:opacity-50"
-                            >
-                                {isSaving ? <Icon name="Loader2" className="w-4 h-4" /> : (shareUrl ? <Icon name="Check" className="w-4 h-4" /> : <Icon name="Share2" className="w-4 h-4" />)}
-                                {shareUrl ? "URL COPIED" : "CLOUD SAVE"}
-                            </button>
                             <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 bg-white border border-slate-200 rounded-xl hover:text-slate-800 transition-all shadow-sm">
-                                <Icon name="Download" className="w-4 h-4" /> PRINT
+                                <Icon name="Download" className="w-4 h-4" /> PRINT BOARD
                             </button>
                         </div>
 
@@ -423,7 +347,7 @@
                                         </div>
                                         <div className="flex items-center gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-sm group print:hidden">
                                             <div className="flex-1 overflow-hidden">
-                                                <p className="text-[10px] font-black text-rose-500 uppercase tracking-[0.3em] mb-2">Search String</p>
+                                                <p className="text-[10px] font-black text-rose-500 uppercase tracking-[0.3em] mb-2">In-Game Search String</p>
                                                 <code className="text-[11px] font-mono text-slate-600 truncate block whitespace-nowrap bg-slate-50 p-3 rounded-xl border border-slate-100">{generateSearchString(needList)}</code>
                                             </div>
                                             <button onClick={() => { const el = document.createElement('textarea'); el.value = generateSearchString(needList); document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); setCopiedType('need'); setTimeout(() => setCopiedType(null), 2000); }} className={`p-3 rounded-2xl transition-all flex items-center gap-2 ${copiedType === 'need' ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
@@ -446,7 +370,7 @@
                                         </div>
                                         <div className="flex items-center gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-sm group print:hidden">
                                             <div className="flex-1 overflow-hidden">
-                                                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.3em] mb-2">Search String</p>
+                                                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.3em] mb-2">In-Game Search String</p>
                                                 <code className="text-[11px] font-mono text-slate-600 truncate block whitespace-nowrap bg-slate-50 p-3 rounded-xl border border-slate-100">{generateSearchString(haveList)}</code>
                                             </div>
                                             <button onClick={() => { const el = document.createElement('textarea'); el.value = generateSearchString(haveList); document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); setCopiedType('have'); setTimeout(() => setCopiedType(null), 2000); }} className={`p-3 rounded-2xl transition-all flex items-center gap-2 ${copiedType === 'have' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
@@ -457,9 +381,9 @@
                                 )}
                             </section>
 
-                            <footer className="pt-12 pb-8 flex flex-col items-center gap-2 opacity-40">
-                                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-500 italic text-center">Sync Protocol v2.5 // Cloud Edition</p>
-                                <p className="text-[8px] text-slate-400 uppercase font-bold tracking-widest leading-none text-center">Metadata sourced from PogoAPI Community</p>
+                            <footer className="pt-12 pb-8 flex flex-col items-center gap-2 opacity-40 text-center">
+                                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-500 italic">Trade Board Engine v2.5</p>
+                                <p className="text-[8px] text-slate-400 uppercase font-bold tracking-widest leading-none">Metadata sourced from PogoAPI Community</p>
                             </footer>
                         </div>
                     </main>
