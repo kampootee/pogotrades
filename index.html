@@ -12,7 +12,7 @@
     <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Firebase Compat SDKs (Better for standalone HTML script tags) -->
+    <!-- Firebase Compat SDKs (Required for standalone HTML without a build step) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -63,13 +63,15 @@
         };
 
         // Configuration and Initialization
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            // Note: If running locally outside this environment, paste your Firebase config object here.
+        };
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const initialToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         const API_URL = 'https://pokemon-go-api.github.io/pokemon-go-api/api/pokedex.json';
 
-        // Firebase Initialization using Compat mode to avoid module/require errors
+        // Firebase Initialization using Compat mode
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
@@ -167,7 +169,7 @@
                         if (boardId) {
                             const boardRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('boards').doc(boardId);
                             const boardSnap = await boardRef.get();
-                            if (boardSnap.exists) {
+                            if (boardSnap.exists()) {
                                 const boardData = boardSnap.data();
                                 setHaveList(boardData.haveList || []);
                                 setNeedList(boardData.needList || []);
