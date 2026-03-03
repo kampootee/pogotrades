@@ -3,421 +3,464 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Go Trade Board - API Core</title>
+    <title>PoGo Trade Board - Sleek Edition</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- React & ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel for JSX transpilation -->
+    <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- html2canvas for JPG export -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <!-- Firebase Compat SDKs (Better for standalone HTML script tags) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #09090b;
-            color: white;
-            overflow-x: hidden;
+        body { font-family: 'Inter', sans-serif; }
+        @media print {
+            .print\:hidden { display: none !important; }
+            aside { display: none !important; }
+            main { padding: 0 !important; width: 100% !important; }
         }
-
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #09090b; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
-
-        .animate-in { animation: fadeIn 0.3s ease-out; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-5px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Interaction states */
-        .config-locked { opacity: 0.1; pointer-events: none; height: 0; overflow: hidden; transition: all 0.4s ease; }
-        .config-ready { opacity: 1; pointer-events: auto; height: auto; transition: all 0.4s ease; }
-        
-        #export-board {
-            width: 800px;
-            min-height: 600px;
-        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
     </style>
 </head>
-<body>
+<body class="bg-slate-100 antialiased">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef, useMemo } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
 
-        const API_URL = "https://pokemon-go-api.github.io/pokemon-go-api";
-        const SPRITE_SOURCE_URL = "https://raw.githubusercontent.com/RetroJohn86/PoGo-Unpacked-DL-Assets/main/Sprite/pm%20and%20portraits";
-        const UNOWN_LIST = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'exclamation', 'question'];
-
-        // --- STABLE SVG ICON COMPONENT ---
-        const Icon = ({ name, className = "w-4 h-4" }) => {
+        // Inline SVG Icons to replace Lucide library and fix forwardRef errors
+        const Icon = ({ name, className = "w-5 h-5", fill = "none" }) => {
             const icons = {
-                star: <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>,
-                download: <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>,
-                search: <><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></>,
-                zap: <path d="M13 2 L3 14 L12 14 L11 22 L21 10 L12 10 Z" fill="currentColor"/>,
-                sparkles: <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>,
-                image: <><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></>,
-                shirt: <path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>,
-                trash: <><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></>,
-                package: <><path d="m7.5 4.27 9 5.15M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.27 6.96 8.73 5.05 8.73-5.05M12 22.08V12"/></>,
-                check: <><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></>,
-                down: <path d="m6 9 6 6 6-6"/>,
-                right: <path d="m9 18 6-6-6-6"/>,
-                loader: <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                Trash2: <path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2m-6 5v6m4-6v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+                Sparkles: <path d="m12 3 1.912 5.886L20 10.8l-5.886 1.912L12 18.6l-1.912-5.888L4.2 10.8l5.886-1.914L12 3Zm-7 12 1.366 4.134L10.5 20.5l-4.134 1.366L5 26l-1.366-4.134L-0.5 20.5l4.134-1.366L5 15Zm14 0 1.366 4.134L24.5 20.5l-4.134 1.366L19 26l-1.366-4.134L13.5 20.5l4.134-1.366L19 15Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill={fill}/>,
+                MapPin: <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0ZM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill={fill}/>,
+                Star: <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill={fill}/>,
+                Plus: <path d="M12 5v14m-7-7h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+                Download: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4m4-5 5 5 5-5m-5 5V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+                Info: <path d="M12 16v-4m0-4h.01M22 12A10 10 0 1 1 2 12a10 10 0 0 1 20 0Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+                Search: <path d="M21 21l-4.35-4.35M19 11A8 8 0 1 1 3 11a8 8 0 0 1 16 0Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+                X: <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+                ChevronDown: <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+                Copy: <path d="M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2ZM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+                Check: <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+                Share2: <path d="M18 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-12 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm12 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-9.3-11.7l6.6-3.6m-6.6 9.6l6.6 3.6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>,
+                Loader2: <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin origin-center"/>
             };
             return (
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} style={{ display: 'inline-block', flexShrink: 0 }}>
-                    {icons[name] || icons.star}
+                <svg viewBox="0 0 24 24" fill={fill} className={className} xmlns="http://www.w3.org/2000/svg">
+                    {icons[name] || null}
                 </svg>
+            );
+        };
+
+        // Configuration and Initialization
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const initialToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        const API_URL = 'https://pokemon-go-api.github.io/pokemon-go-api/api/pokedex.json';
+
+        // Firebase Initialization using Compat mode to avoid module/require errors
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        const PokemonCard = ({ item, onRemove }) => {
+            const getBgClass = () => {
+                switch(item.bg) {
+                    case 'Location': return 'bg-gradient-to-br from-orange-100 via-rose-50 to-amber-50 border-orange-200';
+                    case 'Special': return 'bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-50 border-indigo-200';
+                    default: return 'bg-white border-slate-200';
+                }
+            };
+
+            return (
+                <div className={`relative group p-5 rounded-[2.5rem] shadow-md border transition-all hover:scale-105 hover:shadow-xl hover:z-10 ${getBgClass()}`}>
+                    {item.isShiny && (
+                        <div className="absolute top-4 right-4 z-10 bg-white/80 backdrop-blur-md p-1.5 rounded-2xl border border-amber-200 shadow-sm">
+                            <Icon name="Sparkles" className="w-5 h-5 text-amber-500" fill="currentColor" />
+                        </div>
+                    )}
+                    {item.bg === 'Location' && (
+                        <div className="absolute top-4 left-4 z-10 bg-rose-100/80 backdrop-blur-md p-1.5 rounded-2xl border border-rose-200 shadow-sm">
+                            <Icon name="MapPin" className="w-4 h-4 text-rose-600" />
+                        </div>
+                    )}
+
+                    <div className="relative aspect-square mb-2 flex items-center justify-center p-2">
+                        <img 
+                            src={item.image} 
+                            alt={item.name} 
+                            className={`w-full h-full object-contain ${item.isShiny ? 'drop-shadow-lg' : 'drop-shadow-md'}`} 
+                            loading="lazy" 
+                            onError={(e) => e.target.src = `https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Pokemon/Addressable%20Assets/pm${item.dexNr}.icon.png`} 
+                        />
+                    </div>
+
+                    <div className="text-center">
+                        <span className="text-[9px] font-black text-slate-500 bg-slate-50 px-3 py-1 rounded-full uppercase italic tracking-[0.2em] border border-slate-200 shadow-inner leading-none inline-block">#{item.dexNr}</span>
+                    </div>
+
+                    <button onClick={onRemove} className="absolute -top-3 -right-3 bg-slate-800 text-white p-2.5 rounded-2xl opacity-0 group-hover:opacity-100 transition-all shadow-lg hover:bg-rose-600 active:scale-75 z-20 print:hidden flex items-center justify-center transform group-hover:rotate-6">
+                        <Icon name="Trash2" className="w-5 h-5" />
+                    </button>
+                </div>
             );
         };
 
         const App = () => {
             const [pokedex, setPokedex] = useState([]);
-            const [wantedList, setWantedList] = useState([]);
-            const [offeredList, setOfferedList] = useState([]);
-            const [isLoading, setIsLoading] = useState(false);
+            const [loading, setLoading] = useState(true);
+            const [user, setUser] = useState(null);
+            const [isSaving, setIsSaving] = useState(false);
+            const [shareUrl, setShareUrl] = useState("");
 
-            // Interface State
-            const [activeList, setActiveList] = useState('wanted');
-            const [searchTerm, setSearchTerm] = useState('');
-            const [suggestions, setSuggestions] = useState([]);
-            const [selectedPoke, setSelectedPoke] = useState(null);
+            const [searchTerm, setSearchTerm] = useState("");
+            const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+            const [selectedDexIndex, setSelectedDexIndex] = useState("");
+            const dropdownRef = useRef(null);
 
-            // Variable Settings
             const [isShiny, setIsShiny] = useState(false);
-            const [isLucky, setIsLucky] = useState(false);
-            const [selectedCostume, setSelectedCostume] = useState(null);
-            const [selectedBg, setSelectedBg] = useState(null);
-            const [formState, setFormState] = useState('normal');
-            const [manualBg, setManualBg] = useState('');
-            const [unownLetter, setUnownLetter] = useState('a');
+            const [selectedVariantId, setSelectedVariantId] = useState("standard");
+            const [selectedBg, setSelectedBg] = useState("Standard");
 
-            // Dropdown State
-            const [openDropdown, setOpenDropdown] = useState(null);
+            const [haveList, setHaveList] = useState([]);
+            const [needList, setNeedList] = useState([]);
+            const [copiedType, setCopiedType] = useState(null);
 
-            const exportRef = useRef(null);
-
-            // --- RESOLVER: USE RETROJOHN REPO FOR SPRITES ---
-            const getImageUrl = (path) => {
-                if (!path) return null;
-                if (path.startsWith('http')) return path;
-                // Correctly resolve API relative paths to the provided GitHub source
-                const filename = path.split('/').pop();
-                return `${SPRITE_SOURCE_URL}/${filename}`;
-            };
-
-            // Initial API Fetch
             useEffect(() => {
-                const load = async () => {
-                    setIsLoading(true);
+                const initAuth = async () => {
                     try {
-                        const res = await fetch(`${API_URL}/api/pokedex.json`);
-                        const data = await res.json();
-                        setPokedex(data);
-                    } catch (e) { console.error("API Fetch Error", e); }
-                    finally { setIsLoading(false); }
+                        if (initialToken) {
+                            await auth.signInWithCustomToken(initialToken);
+                        } else {
+                            await auth.signInAnonymously();
+                        }
+                    } catch (err) { console.error("Auth failed", err); }
                 };
-                load();
+                initAuth();
+                const unsubscribe = auth.onAuthStateChanged(setUser);
+                return () => unsubscribe();
             }, []);
 
-            // Search Filter
             useEffect(() => {
-                if (searchTerm.length < 2 || (selectedPoke && searchTerm === selectedPoke.names.English)) {
-                    setSuggestions([]);
-                    return;
-                }
-                const term = searchTerm.toLowerCase();
-                const filtered = pokedex
-                    .filter(p => p.names?.English?.toLowerCase().includes(term))
-                    .sort((a, b) => a.names.English.toLowerCase().startsWith(term) ? -1 : 1)
-                    .slice(0, 10);
-                setSuggestions(filtered);
-            }, [searchTerm, pokedex, selectedPoke]);
+                const fetchData = async () => {
+                    try {
+                        const response = await fetch(API_URL);
+                        const data = await response.json();
+                        setPokedex(data);
 
-            // Modular Asset Mapping
-            const assetInfo = useMemo(() => {
-                if (!selectedPoke || !selectedPoke.assetForms) return { costumes: [], backgrounds: [] };
-                const speciesName = String(selectedPoke.names?.English || "").toUpperCase();
-                
-                const mapped = selectedPoke.assetForms.map((af, idx) => {
-                    const formStr = af.form || "";
-                    let displayName = formStr.replace(speciesName, "").replace(/_/g, " ").trim();
-                    if (!displayName) displayName = "Standard";
-                    return {
-                        ...af,
-                        id: idx,
-                        displayName,
-                        resolvedImage: getImageUrl(af.image),
-                        resolvedShiny: getImageUrl(af.shinyImage)
-                    };
-                });
+                        const params = new URLSearchParams(window.location.search);
+                        const boardId = params.get('board');
+                        
+                        if (boardId) {
+                            const boardRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('boards').doc(boardId);
+                            const boardSnap = await boardRef.get();
+                            if (boardSnap.exists) {
+                                const boardData = boardSnap.data();
+                                setHaveList(boardData.haveList || []);
+                                setNeedList(boardData.needList || []);
+                            }
+                        }
+                        setLoading(false);
+                    } catch (err) { console.error("Fetch failed", err); setLoading(false); }
+                };
+                fetchData();
+            }, []);
 
-                return {
-                    costumes: mapped.filter(a => a.costume),
-                    backgrounds: mapped.filter(a => {
-                        const f = a.form || "";
-                        return f.includes("LOCATION") || f.includes("SPECIAL");
+            const formatApiLabel = (text) => {
+                if (!text || text === "Normal" || text === "None") return "";
+                return text.replace(/COSTUME_/g, '').split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+            };
+
+            const suggestions = useMemo(() => {
+                if (!searchTerm.trim()) return [];
+                const lowerTerm = searchTerm.toLowerCase();
+                return pokedex
+                    .map((p, idx) => ({ ...p, originalIndex: idx }))
+                    .filter(p => {
+                        const name = p.names?.English || "";
+                        return name.toLowerCase().includes(lowerTerm) || p.dexNr.toString().includes(lowerTerm);
                     })
-                };
-            }, [selectedPoke]);
+                    .slice(0, 10);
+            }, [searchTerm, pokedex]);
 
-            const selectSpecies = (p) => {
-                setSelectedPoke(p);
-                setSearchTerm(p.names.English);
-                setSuggestions([]);
-                // Reset all parameters immediately
-                setIsShiny(false);
-                setIsLucky(false);
-                setSelectedCostume(null);
-                setSelectedBg(null);
-                setFormState('normal');
-                setManualBg('');
-                setOpenDropdown(null);
-            };
+            const currentPokemon = useMemo(() => {
+                if (selectedDexIndex === "") return null;
+                return pokedex[selectedDexIndex];
+            }, [selectedDexIndex, pokedex]);
 
-            const addEntry = () => {
-                if (!selectedPoke) return;
-
-                const name = String(selectedPoke.names.English);
-                const paddedDex = String(selectedPoke.dex).padStart(3, '0');
-
-                // Sprite Resolution Logic
-                // 1. Current Costume Selection
-                // 2. Current Background Selection
-                // 3. Species Base (resolved to RetroJohn source)
-                let mainUrl = isShiny ? getImageUrl(selectedPoke.shinyImage) : getImageUrl(selectedPoke.image);
-                
-                if (selectedCostume) {
-                    mainUrl = isShiny ? (selectedCostume.resolvedShiny || selectedCostume.resolvedImage) : selectedCostume.resolvedImage;
-                } else if (selectedBg) {
-                    mainUrl = isShiny ? (selectedBg.resolvedShiny || selectedBg.resolvedImage) : selectedBg.resolvedImage;
+            const variantOptions = useMemo(() => {
+                if (!currentPokemon) return [];
+                const options = [{ id: 'standard', label: 'Standard', form: 'Normal', costume: 'None' }];
+                if (currentPokemon.megaEvolutions) {
+                    Object.keys(currentPokemon.megaEvolutions).forEach(key => options.push({ id: `mega-${key}`, label: formatApiLabel(key), form: key, costume: 'None' }));
                 }
+                if (currentPokemon.assetForms) {
+                    currentPokemon.assetForms.forEach((af, index) => {
+                        const combined = [formatApiLabel(af.form), formatApiLabel(af.costume)].filter(Boolean).join(' ');
+                        if (combined) options.push({ id: `asset-${index}`, label: combined, form: af.form || 'Normal', costume: af.costume || 'None', apiImages: { image: af.image, shinyImage: af.shinyImage } });
+                    });
+                }
+                return options;
+            }, [currentPokemon]);
 
-                // GitHub Sprite Archive Fallback (the "icon_XXX_XX" style)
-                let formId = "00";
-                if (name.includes("Origin")) formId = "61";
-                else if (name.includes("Alolan")) formId = "12";
-                else if (name.includes("Galarian")) formId = "31";
-                else if (name.includes("Hisuian")) formId = "51";
-                const githubFallback = `https://raw.githubusercontent.com/RetroJohn86/Pokemon-Go-Assets-Archive-Sprites/main/Sprites/pokemon_icon_${paddedDex}_${formId}${isShiny ? '_shiny' : ''}.png`;
+            const activeVariant = useMemo(() => variantOptions.find(v => v.id === selectedVariantId) || variantOptions[0], [selectedVariantId, variantOptions]);
 
-                if (!mainUrl) mainUrl = githubFallback;
-
-                const entry = {
-                    id: Date.now(),
-                    name: name + (name.includes("Unown") ? ` (${unownLetter.toUpperCase()})` : ""),
-                    img: mainUrl,
-                    github: githubFallback,
-                    home: `https://img.pokemondb.net/sprites/home/${isShiny ? 'shiny' : 'normal'}/${name.toLowerCase().replace(/ /g, "-")}.png`,
-                    isShiny, isLucky, formState,
-                    costume: selectedCostume ? String(selectedCostume.displayName) : "",
-                    background: selectedBg ? String(selectedBg.displayName) : String(manualBg)
-                };
-
-                if (activeList === 'wanted') setWantedList(p => [...p, entry]);
-                else setOfferedList(p => [...p, entry]);
-
-                // Reset
-                setSearchTerm(''); setSelectedPoke(null);
+            const getPokemonImage = (pokemon, variant, shiny) => {
+                if (!pokemon || !variant) return "";
+                if (variant.apiImages) {
+                    const img = shiny ? (variant.apiImages.shinyImage || variant.apiImages.image) : variant.apiImages.image;
+                    if (img) return img;
+                }
+                if (variant.form.startsWith("MEGA_") && pokemon.megaEvolutions?.[variant.form]?.assets) {
+                    const megaAssets = pokemon.megaEvolutions[variant.form].assets;
+                    const img = shiny ? (megaAssets.shinyImage || megaAssets.image) : megaAssets.image;
+                    if (img) return img;
+                }
+                return pokemon.assets ? (shiny ? (pokemon.assets.shinyImage || pokemon.assets.image) : pokemon.assets.image) : `https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Pokemon/Addressable%20Assets/pm${pokemon.dexNr}.icon.png`;
             };
 
-            const PokemonCard = ({ item, list }) => {
-                const handleErr = (e) => {
-                    if (e.target.src === item.img) e.target.src = item.github;
-                    else if (e.target.src === item.github) e.target.src = item.home;
-                    else e.target.src = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/0.png";
+            const addPokemon = (type) => {
+                if (!currentPokemon || !activeVariant) return;
+                const newItem = {
+                    id: crypto.randomUUID(),
+                    dexNr: currentPokemon.dexNr,
+                    name: currentPokemon.names.English,
+                    isShiny: isShiny,
+                    variantLabel: activeVariant.label,
+                    form: activeVariant.form,
+                    costume: activeVariant.costume,
+                    bg: selectedBg,
+                    image: getPokemonImage(currentPokemon, activeVariant, isShiny)
                 };
+                if (type === 'have') setHaveList([...haveList, newItem]);
+                else setNeedList([...needList, newItem]);
+            };
 
-                return (
-                    <div className={`relative group flex flex-col items-center p-3 border-2 transition-all hover:border-white min-h-[180px] overflow-hidden ${item.isLucky ? 'bg-orange-500/10 border-orange-500/50 shadow-[inset_0_0_15px_rgba(249,115,22,0.15)]' : 'bg-zinc-800 border-zinc-700'}`}>
-                        <div className="absolute top-1.5 right-1.5 flex flex-col gap-1 z-20">
-                            {item.isShiny && <Icon name="sparkles" className="w-5 h-5 text-yellow-400 drop-shadow-md" />}
-                            {item.isLucky && <Icon name="zap" className="w-5 h-5 text-orange-400 drop-shadow-md" />}
-                        </div>
-                        <div className="absolute top-1.5 left-1.5 flex flex-col gap-1 z-20">
-                            {item.background && <Icon name="image" className="w-4 h-4 text-emerald-400 drop-shadow-md" />}
-                            {item.costume && <Icon name="shirt" className="w-4 h-4 text-blue-400 drop-shadow-md" />}
-                        </div>
-                        <img src={item.img} crossOrigin="anonymous" className="w-24 h-24 object-contain mt-2 drop-shadow-2xl z-10" onError={handleErr} />
-                        <p className="text-[10px] font-black text-center uppercase tracking-tighter mt-auto z-10 leading-none px-1 text-zinc-300 group-hover:text-white transition-colors">{String(item.name)}</p>
-                        <div className="flex flex-col gap-0.5 w-full mt-1.5 z-10">
-                            {item.formState !== 'normal' && <div className="bg-indigo-600 text-[8px] font-black py-0.5 text-center uppercase">{String(item.formState)}</div>}
-                            {item.costume && <div className="bg-blue-600 text-[8px] font-black py-0.5 text-center uppercase">{String(item.costume)}</div>}
-                            {item.background && <div className="bg-emerald-600 text-[8px] font-black py-0.5 text-center uppercase">{String(item.background)}</div>}
-                        </div>
+            const clearSearch = () => {
+                setSearchTerm("");
+                setSelectedDexIndex("");
+                setIsDropdownOpen(false);
+            };
+
+            const selectPokemon = (index, name) => {
+                setSelectedDexIndex(index);
+                setSearchTerm(name);
+                setIsDropdownOpen(false);
+            };
+
+            const generateSearchString = (list) => {
+                if (list.length === 0) return "";
+                const uniqueDEX = [...new Set(list.map(item => item.dexNr.toString().padStart(4, '0')))];
+                let str = uniqueDEX.join(',');
+                if (list.some(item => item.costume !== "None")) str += "&costume";
+                if (list.some(item => item.isShiny)) str += "&shiny";
+                return str;
+            };
+
+            const removeItem = (id, type) => {
+                if (type === 'have') setHaveList(prev => prev.filter(item => item.id !== id));
+                else setNeedList(prev => prev.filter(item => item.id !== id));
+            };
+
+            const saveAndShareBoard = async () => {
+                if (!user) return;
+                setIsSaving(true);
+                const boardId = crypto.randomUUID().split('-')[0];
+                const boardRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('boards').doc(boardId);
+                try {
+                    await boardRef.set({ haveList, needList, createdAt: Date.now() });
+                    const url = `${window.location.origin}${window.location.pathname}?board=${boardId}`;
+                    setShareUrl(url);
+                    const el = document.createElement('textarea');
+                    el.value = url;
+                    document.body.appendChild(el);
+                    el.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(el);
+                } catch (err) { console.error("Save failed", err); }
+                finally { setIsSaving(false); }
+            };
+
+            useEffect(() => {
+                const handleClickOutside = (event) => {
+                    if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                        setIsDropdownOpen(false);
+                    }
+                };
+                document.addEventListener("mousedown", handleClickOutside);
+                return () => document.removeEventListener("mousedown", handleClickOutside);
+            }, []);
+
+            if (loading) return (
+                <div className="flex items-center justify-center h-screen bg-slate-50 text-slate-800 font-black italic uppercase tracking-widest text-center">
+                    <div className="flex flex-col items-center gap-4">
+                        <Icon name="Loader2" className="w-12 h-12 text-blue-600" />
+                        <span className="animate-pulse">Loading Assets...</span>
                     </div>
-                );
-            };
-
-            const handleExport = async () => {
-                if (!window.html2canvas || !exportRef.current) return;
-                const canvas = await window.html2canvas(exportRef.current, { useCORS: true, scale: 2, backgroundColor: '#09090b' });
-                const link = document.createElement('a');
-                link.download = `trade-board-${Date.now()}.jpg`;
-                link.href = canvas.toDataURL('image/jpeg', 0.95);
-                link.click();
-            };
+                </div>
+            );
 
             return (
-                <div className="min-h-screen text-zinc-100 pb-12 selection:bg-blue-500">
-                    <div className="bg-zinc-900 border-b-4 border-blue-500 px-6 py-4 sticky top-0 z-[400] flex items-center justify-between shadow-2xl">
-                        <div className="flex items-center gap-2"><Icon name="star" className="w-6 h-6 text-blue-500" /><h1 className="text-2xl font-black tracking-tighter uppercase italic">Go Trade Board</h1></div>
-                        <button onClick={handleExport} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 px-6 py-2 text-sm font-black uppercase shadow-lg active:translate-y-0.5 transition-all"><Icon name="download" className="w-4 h-4" /> <span>Save Board</span></button>
-                    </div>
-
-                    <div className="max-w-7xl mx-auto p-4 lg:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8">
-                        {/* Editor Config */}
-                        <div className="lg:col-span-4 space-y-6">
-                            <section className="bg-zinc-900 p-6 border-l-4 border-blue-500 shadow-2xl flex flex-col gap-6">
-                                
-                                {/* Target List Toggle */}
-                                <div className="space-y-2 relative z-[300]">
-                                    <div className="grid grid-cols-2 gap-2 p-1 bg-zinc-950 border border-zinc-800">
-                                        <button onClick={() => setActiveList('wanted')} className={`py-3 text-[10px] font-black transition-all ${activeList === 'wanted' ? 'bg-red-600 text-white' : 'text-zinc-600 hover:text-zinc-300'}`}>WANTED</button>
-                                        <button onClick={() => setActiveList('offered')} className={`py-3 text-[10px] font-black transition-all ${activeList === 'offered' ? 'bg-emerald-600 text-white' : 'text-zinc-600 hover:text-zinc-300'}`}>FOR TRADE</button>
-                                    </div>
-                                </div>
-
-                                {/* Pokémon Selection */}
-                                <div className="space-y-2 relative z-[290]">
-                                    <div className="relative">
-                                        <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                                        <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-4 bg-zinc-800 border border-zinc-700 outline-none focus:border-blue-500 text-sm font-bold uppercase transition-all" placeholder="Find Pokémon Species..." />
-                                        {selectedPoke && <Icon name="check" className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 w-5 h-5" />}
-                                    </div>
-                                    {suggestions.length > 0 && (
-                                        <div className="absolute z-[400] w-full mt-1 bg-zinc-800 border-2 border-zinc-700 shadow-2xl max-h-60 overflow-y-auto custom-scrollbar animate-in">
-                                            {suggestions.map(s => <button key={s.id} onClick={() => selectSpecies(s)} className="w-full text-left px-4 py-3 hover:bg-zinc-700 text-sm border-b border-zinc-700 font-black uppercase flex items-center justify-between group transition-colors"><span className="text-zinc-100">{String(s.names?.English || "Unknown")}</span><Icon name="right" className="w-4 h-4 text-zinc-500 group-hover:text-blue-500" /></button>)}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Configuration Panel - Unlocked upon Selection */}
-                                <div className={`flex flex-col gap-5 config-section ${selectedPoke ? 'config-visible' : 'config-hidden'}`}>
-                                    <div className="h-px bg-zinc-800 w-full my-2"></div>
-                                    
-                                    {/* Costumes Dropdown */}
-                                    {assetInfo.costumes.length > 0 && (
-                                        <div className="relative z-[280]">
-                                            <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-1 italic">Event Costume / Variant</label>
-                                            <div className="relative">
-                                                <Icon name="package" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                                                <input readOnly type="text" value={String(selectedCostume ? selectedCostume.displayName : "Select Costume...")} onClick={() => setOpenDropdown(openDropdown === 'costume' ? null : 'costume')} className="w-full pl-10 pr-10 py-4 bg-zinc-800 border border-zinc-700 outline-none focus:border-blue-500 text-xs font-bold uppercase cursor-pointer transition-colors" />
-                                                <Icon name="down" className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col md:flex-row antialiased">
+                    <aside className="w-full md:w-80 bg-white border-r border-slate-200 p-6 flex flex-col gap-6 shadow-xl z-20 overflow-y-auto max-h-screen">
+                        <div className="space-y-2 relative" ref={dropdownRef}>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Pokedex Search</label>
+                            <div className="relative group">
+                                <input 
+                                    type="text"
+                                    placeholder="Pokemon name..."
+                                    className="w-full pl-10 pr-10 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-bold placeholder:text-slate-400 text-slate-800"
+                                    value={searchTerm}
+                                    onChange={(e) => { setSearchTerm(e.target.value); setIsDropdownOpen(true); }}
+                                    onFocus={() => setIsDropdownOpen(true)}
+                                />
+                                <Icon name="Search" className="absolute left-3.5 top-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors w-5 h-5" />
+                                {searchTerm && <button onClick={clearSearch} className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600"><Icon name="X" className="w-5 h-5" /></button>}
+                            </div>
+                            
+                            {isDropdownOpen && suggestions.length > 0 && (
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 overflow-hidden max-h-72 overflow-y-auto">
+                                    {suggestions.map((p) => (
+                                        <button key={p.originalIndex} className="w-full flex items-center gap-4 p-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-left transition-colors" onClick={() => selectPokemon(p.originalIndex, p.names.English)}>
+                                            <img src={p.assets?.image || `https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Pokemon/Addressable%20Assets/pm${p.dexNr}.icon.png`} className="w-10 h-10 object-contain" alt="" />
+                                            <div>
+                                                <div className="text-sm font-black text-slate-800 uppercase italic tracking-tighter leading-none">{String(p.names?.English || "")}</div>
+                                                <div className="text-[10px] text-slate-400 font-black tracking-widest mt-0.5">#{p.dexNr}</div>
                                             </div>
-                                            {openDropdown === 'costume' && (
-                                                <div className="absolute z-[400] w-full mt-1 bg-zinc-950 border-2 border-zinc-700 shadow-2xl max-h-48 overflow-y-auto custom-scrollbar">
-                                                    {assetInfo.costumes.map(asset => (
-                                                        <button key={asset.id} onClick={() => { setSelectedCostume(asset); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-zinc-800 text-[10px] border-b border-zinc-800 font-black uppercase text-zinc-400 hover:text-zinc-100 flex items-center gap-3 transition-colors">
-                                                            <img src={asset.resolvedImage} className="w-8 h-8 object-contain" crossOrigin="anonymous" />
-                                                            {String(asset.displayName)}
-                                                        </button>
-                                                    ))}
-                                                    <button onClick={() => { setSelectedCostume(null); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-zinc-800 text-[10px] font-black uppercase text-zinc-600 italic">No Costume Selection</button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Background Dropdown */}
-                                    <div className="relative z-[270]">
-                                        <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest block mb-1 italic">Background Card</label>
-                                        <div className="relative">
-                                            <Icon name="image" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                                            <input readOnly type="text" value={String(selectedBg ? selectedBg.displayName : manualBg || "Standard Background")} onClick={() => setOpenDropdown(openDropdown === 'bg' ? null : 'bg')} className="w-full pl-10 pr-10 py-4 bg-zinc-800 border border-zinc-700 outline-none focus:border-blue-500 text-xs font-bold uppercase cursor-pointer" />
-                                            <Icon name="down" className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-                                        </div>
-                                        {openDropdown === 'bg' && (
-                                            <div className="absolute z-[400] w-full mt-1 bg-zinc-950 border-2 border-zinc-700 shadow-2xl max-h-48 overflow-y-auto custom-scrollbar">
-                                                {assetInfo.backgrounds.map(asset => (
-                                                    <button key={asset.id} onClick={() => { setSelectedBg(asset); setManualBg(''); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-zinc-800 text-[10px] border-b border-zinc-800 font-black uppercase text-zinc-400 hover:text-zinc-100 flex items-center gap-3">
-                                                        <img src={asset.resolvedImage} className="w-8 h-8 object-contain" crossOrigin="anonymous" />
-                                                        {String(asset.displayName)}
-                                                    </button>
-                                                ))}
-                                                <button onClick={() => { setSelectedBg(null); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-zinc-800 text-[10px] font-black uppercase text-zinc-600 italic">Standard Selection</button>
-                                            </div>
-                                        )}
-                                        <input type="text" value={manualBg} onChange={(e) => { setManualBg(e.target.value); setSelectedBg(null); }} className="w-full px-4 py-2 bg-zinc-950 border border-zinc-800 outline-none focus:border-blue-500 text-[10px] font-bold uppercase mt-1 transition-all" placeholder="Enter manual location note..." />
-                                    </div>
-
-                                    {/* Stats & Toggles */}
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {(selectedPoke?.shinyAvailable || selectedPoke?.shinyImage) && (
-                                            <button onClick={() => setIsShiny(!isShiny)} className={`flex items-center justify-center gap-2 py-3 border-2 transition-all ${isShiny ? 'bg-yellow-500/10 border-yellow-500 text-yellow-500 shadow-[inset_0_0_10px_rgba(234,179,8,0.2)]' : 'bg-zinc-800 border-zinc-700 text-zinc-600'}`}>
-                                                <Icon name="sparkles" /> <span className="text-[10px] font-black uppercase tracking-widest">Shiny</span>
-                                            </button>
-                                        )}
-                                        <button onClick={() => setIsLucky(!isLucky)} className={`flex items-center justify-center gap-2 py-3 border-2 transition-all ${isLucky ? 'bg-orange-500/10 border-orange-500 text-orange-500 shadow-[inset_0_0_10px_rgba(249,115,22,0.1)]' : 'bg-zinc-800 border-zinc-700 text-zinc-600'}`}>
-                                            <Icon name="zap" /> <span className="text-[10px] font-black uppercase tracking-widest">Lucky</span>
                                         </button>
-                                    </div>
-
-                                    {/* Battle Forms */}
-                                    {(selectedPoke?.tempEvolutions?.length > 0 || selectedPoke?.dex <= 1000) && (
-                                        <select value={formState} onChange={(e) => setFormState(e.target.value)} className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 outline-none focus:border-blue-500 text-xs font-bold uppercase cursor-pointer" >
-                                            <option value="normal">Standard Form</option>
-                                            {selectedPoke?.dex <= 1000 && <option value="dynamax">Dynamax</option>}
-                                            {selectedPoke?.dex <= 1000 && <option value="gigantamax">Gigantamax</option>}
-                                            {selectedPoke?.tempEvolutions?.length > 0 && <option value="mega">Mega Evolution</option>}
-                                        </select>
-                                    )}
-
-                                    <button onClick={addEntry} className="w-full py-5 font-black bg-white text-black hover:bg-blue-600 hover:text-white transition-all uppercase tracking-widest flex items-center justify-center gap-2 shadow-2xl active:scale-[0.98]">
-                                        <Icon name="star" className="w-6 h-6 mb-0.5" /> ADD TO BOARD
-                                    </button>
+                                    ))}
                                 </div>
-                            </section>
+                            )}
                         </div>
 
-                        {/* Rendering Output */}
-                        <div className="lg:col-span-8">
-                            <div className="overflow-x-auto pb-8">
-                                <div ref={exportRef} id="export-board" className="bg-zinc-950 p-10 border-[20px] border-zinc-900 flex flex-col gap-12 mx-auto shadow-2xl">
-                                    <div className="space-y-12">
-                                        {/* Wanted List */}
-                                        <div className="space-y-4">
-                                            <div className="flex items-center gap-4 bg-red-600 px-6 py-3 shadow-xl">
-                                                <Icon name="search" className="w-8 h-8 text-white" />
-                                                <h3 className="text-3xl font-black text-white uppercase italic tracking-widest">WANTED</h3>
-                                            </div>
-                                            <div className="grid grid-cols-4 gap-4 bg-zinc-900/50 p-4 border-2 border-zinc-800 min-h-[100px]">
-                                                {wantedList.map(item => <PokemonCard key={item.id} item={item} list="wanted" />)}
-                                                {wantedList.length === 0 && <div className="col-span-full h-24 flex items-center justify-center text-zinc-700 font-black uppercase text-xl tracking-[0.5em] border-4 border-dashed border-zinc-900">LIST EMPTY</div>}
-                                            </div>
-                                        </div>
+                        {currentPokemon && (
+                            <div className="space-y-5 animate-in fade-in slide-in-from-top-4 duration-500">
+                                <div className="relative group p-6 bg-slate-50 rounded-3xl border border-slate-200 shadow-sm overflow-hidden text-center">
+                                    <img src={getPokemonImage(currentPokemon, activeVariant, isShiny)} className="mx-auto w-32 h-32 object-contain drop-shadow-xl" alt="Preview" />
+                                    <h2 className="mt-3 font-black text-slate-900 text-xl uppercase italic leading-tight tracking-tighter">{String(currentPokemon.names?.English || "")}</h2>
+                                    <p className="text-[9px] text-blue-600 font-black uppercase tracking-[0.2em] mt-2 bg-blue-100 px-3 py-1 rounded-full inline-block">{String(activeVariant?.label || "Standard")}</p>
+                                </div>
 
-                                        {/* Offered List */}
-                                        <div className="space-y-4 flex-1">
-                                            <div className="flex items-center gap-4 bg-emerald-600 px-6 py-3 shadow-xl">
-                                                <Icon name="zap" className="w-8 h-8 text-white" />
-                                                <h3 className="text-3xl font-black text-white uppercase italic tracking-widest">FOR TRADE</h3>
-                                            </div>
-                                            <div className="grid grid-cols-4 gap-4 bg-zinc-900/50 p-4 border-2 border-zinc-800 min-h-[100px]">
-                                                {offeredList.map(item => <PokemonCard key={item.id} item={item} list="offered" />)}
-                                                {offeredList.length === 0 && <div className="col-span-full h-24 flex items-center justify-center text-zinc-800 font-black uppercase text-xl tracking-[0.5em] border-4 border-dashed border-zinc-900">LIST EMPTY</div>}
-                                            </div>
+                                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-2 rounded-lg ${isShiny ? 'bg-amber-100 text-amber-600 shadow-sm' : 'bg-slate-200 text-slate-400'}`}>
+                                            <Icon name="Sparkles" className="w-5 h-5" fill={isShiny ? "currentColor" : "none"} />
                                         </div>
+                                        <span className="text-sm font-black uppercase italic text-slate-600 tracking-tighter">Shiny Version</span>
                                     </div>
+                                    <input type="checkbox" checked={isShiny} onChange={(e) => setIsShiny(e.target.checked)} className="w-6 h-6 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-500/50 cursor-pointer accent-blue-600" />
+                                </div>
 
-                                    <div className="flex items-center justify-between pt-10 border-t-4 border-zinc-900">
-                                        <div className="flex gap-2 opacity-10">
-                                            {[...Array(6)].map((_, i) => <div key={i} className="w-12 h-1 bg-white"></div>)}
-                                        </div>
-                                        <p className="text-zinc-800 text-xs font-black uppercase tracking-[0.5em] italic">GO_CORE_API_V45.0</p>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Variant Select</label>
+                                    <div className="relative">
+                                        <select className="w-full p-3.5 bg-white border border-slate-200 rounded-2xl outline-none text-slate-700 font-black uppercase italic tracking-tighter text-sm cursor-pointer shadow-sm appearance-none" value={selectedVariantId} onChange={(e) => setSelectedVariantId(e.target.value)}>
+                                            {variantOptions.map(v => <option key={v.id} value={v.id}>{String(v.label || "")}</option>)}
+                                        </select>
+                                        <Icon name="ChevronDown" className="absolute right-4 top-4 text-slate-400 pointer-events-none w-4 h-4" />
                                     </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Background Card</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {['Standard', 'Location', 'Special'].map(bg => (
+                                            <button key={bg} onClick={() => setSelectedBg(bg)} className={`text-[9px] py-3 rounded-2xl border font-black uppercase tracking-tighter transition-all ${selectedBg === bg ? 'bg-slate-800 border-slate-800 text-white shadow-md' : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'}`}>
+                                                {bg}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-3 pt-4">
+                                    <button onClick={() => addPokemon('have')} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-3xl transition-all active:scale-95 uppercase tracking-tighter italic text-lg shadow-lg shadow-emerald-200">Add to Trade</button>
+                                    <button onClick={() => addPokemon('need')} className="w-full bg-rose-600 hover:bg-rose-700 text-white font-black py-4 rounded-3xl transition-all active:scale-95 uppercase tracking-tighter italic text-lg shadow-lg shadow-rose-200">Add to Need</button>
                                 </div>
                             </div>
+                        )}
+                    </aside>
+
+                    <main className="flex-1 p-6 md:p-12 overflow-y-auto bg-slate-100 relative">
+                        <div className="absolute top-6 right-6 flex items-center gap-3 print:hidden">
+                            <button 
+                                onClick={saveAndShareBoard}
+                                disabled={isSaving || (haveList.length === 0 && needList.length === 0)}
+                                className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all shadow-lg disabled:opacity-50"
+                            >
+                                {isSaving ? <Icon name="Loader2" className="w-4 h-4" /> : (shareUrl ? <Icon name="Check" className="w-4 h-4" /> : <Icon name="Share2" className="w-4 h-4" />)}
+                                {shareUrl ? "URL COPIED" : "CLOUD SAVE"}
+                            </button>
+                            <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 bg-white border border-slate-200 rounded-xl hover:text-slate-800 transition-all shadow-sm">
+                                <Icon name="Download" className="w-4 h-4" /> PRINT
+                            </button>
                         </div>
-                    </div>
+
+                        <div className="max-w-6xl mx-auto space-y-16 pt-8">
+                            <section>
+                                <div className="flex items-center gap-4 mb-8">
+                                    <h2 className="text-3xl font-black text-rose-600 uppercase italic tracking-tighter flex items-center gap-3"><Icon name="Star" fill="currentColor" className="w-8 h-8" /> Looking For</h2>
+                                    <div className="h-[2px] flex-1 bg-gradient-to-r from-rose-200 to-transparent"></div>
+                                </div>
+                                {needList.length === 0 ? <div className="h-24 border-2 border-dashed border-slate-300 rounded-[2rem] flex items-center justify-center text-slate-400 bg-white/50 font-black uppercase italic tracking-widest text-xs">No entries in wishlist</div> : (
+                                    <div className="space-y-6">
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                                            {needList.map(item => <PokemonCard key={item.id} item={item} onRemove={() => removeItem(item.id, 'need')} />)}
+                                        </div>
+                                        <div className="flex items-center gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-sm group print:hidden">
+                                            <div className="flex-1 overflow-hidden">
+                                                <p className="text-[10px] font-black text-rose-500 uppercase tracking-[0.3em] mb-2">Search String</p>
+                                                <code className="text-[11px] font-mono text-slate-600 truncate block whitespace-nowrap bg-slate-50 p-3 rounded-xl border border-slate-100">{generateSearchString(needList)}</code>
+                                            </div>
+                                            <button onClick={() => { const el = document.createElement('textarea'); el.value = generateSearchString(needList); document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); setCopiedType('need'); setTimeout(() => setCopiedType(null), 2000); }} className={`p-3 rounded-2xl transition-all flex items-center gap-2 ${copiedType === 'need' ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                                                {copiedType === 'need' ? <Icon name="Check" className="w-5 h-5" /> : <Icon name="Copy" className="w-5 h-5" />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </section>
+
+                            <section>
+                                <div className="flex items-center gap-4 mb-8">
+                                    <h2 className="text-3xl font-black text-emerald-600 uppercase italic tracking-tighter flex items-center gap-3"><Icon name="Plus" className="w-8 h-8 stroke-[3]" /> For Trade</h2>
+                                    <div className="h-[2px] flex-1 bg-gradient-to-r from-emerald-200 to-transparent"></div>
+                                </div>
+                                {haveList.length === 0 ? <div className="h-24 border-2 border-dashed border-slate-300 rounded-[2rem] flex items-center justify-center text-slate-400 bg-white/50 font-black uppercase italic tracking-widest text-xs">No trade offers currently</div> : (
+                                    <div className="space-y-6">
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                                            {haveList.map(item => <PokemonCard key={item.id} item={item} onRemove={() => removeItem(item.id, 'have')} />)}
+                                        </div>
+                                        <div className="flex items-center gap-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-sm group print:hidden">
+                                            <div className="flex-1 overflow-hidden">
+                                                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.3em] mb-2">Search String</p>
+                                                <code className="text-[11px] font-mono text-slate-600 truncate block whitespace-nowrap bg-slate-50 p-3 rounded-xl border border-slate-100">{generateSearchString(haveList)}</code>
+                                            </div>
+                                            <button onClick={() => { const el = document.createElement('textarea'); el.value = generateSearchString(haveList); document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); setCopiedType('have'); setTimeout(() => setCopiedType(null), 2000); }} className={`p-3 rounded-2xl transition-all flex items-center gap-2 ${copiedType === 'have' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                                                {copiedType === 'have' ? <Icon name="Check" className="w-5 h-5" /> : <Icon name="Copy" className="w-5 h-5" />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </section>
+
+                            <footer className="pt-12 pb-8 flex flex-col items-center gap-2 opacity-40">
+                                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-500 italic text-center">Sync Protocol v2.5 // Cloud Edition</p>
+                                <p className="text-[8px] text-slate-400 uppercase font-bold tracking-widest leading-none text-center">Metadata sourced from PogoAPI Community</p>
+                            </footer>
+                        </div>
+                    </main>
                 </div>
             );
         };
