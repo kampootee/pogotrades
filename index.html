@@ -36,7 +36,7 @@
         }
 
         /* Interaction states */
-        .config-locked { opacity: 0; pointer-events: none; height: 0; overflow: hidden; transition: all 0.4s ease; }
+        .config-locked { opacity: 0.1; pointer-events: none; height: 0; overflow: hidden; transition: all 0.4s ease; }
         .config-ready { opacity: 1; pointer-events: auto; height: auto; transition: all 0.4s ease; }
         
         #export-board {
@@ -235,12 +235,9 @@
                     else if (e.target.src === item.github) e.target.src = item.home;
                     else e.target.src = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/0.png";
                 };
-                const remove = () => {
-                    if (list === 'wanted') setWantedList(prev => prev.filter(x => x.id !== item.id));
-                    else setOfferedList(prev => prev.filter(x => x.id !== item.id));
-                };
+
                 return (
-                    <div className={`relative group flex flex-col items-center p-3 border-2 transition-all hover:border-white cursor-pointer min-h-[180px] overflow-hidden ${item.isLucky ? 'bg-orange-500/10 border-orange-500/50 shadow-[inset_0_0_15px_rgba(249,115,22,0.15)]' : 'bg-zinc-800 border-zinc-700'}`} onClick={remove}>
+                    <div className={`relative group flex flex-col items-center p-3 border-2 transition-all hover:border-white min-h-[180px] overflow-hidden ${item.isLucky ? 'bg-orange-500/10 border-orange-500/50 shadow-[inset_0_0_15px_rgba(249,115,22,0.15)]' : 'bg-zinc-800 border-zinc-700'}`}>
                         <div className="absolute top-1.5 right-1.5 flex flex-col gap-1 z-20">
                             {item.isShiny && <Icon name="sparkles" className="w-5 h-5 text-yellow-400 drop-shadow-md" />}
                             {item.isLucky && <Icon name="zap" className="w-5 h-5 text-orange-400 drop-shadow-md" />}
@@ -256,7 +253,6 @@
                             {item.costume && <div className="bg-blue-600 text-[8px] font-black py-0.5 text-center uppercase">{String(item.costume)}</div>}
                             {item.background && <div className="bg-emerald-600 text-[8px] font-black py-0.5 text-center uppercase">{String(item.background)}</div>}
                         </div>
-                        <div className="absolute inset-0 bg-red-600/90 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity z-30"><Icon name="trash" className="text-white w-8 h-8" /></div>
                     </div>
                 );
             };
@@ -278,7 +274,7 @@
                     </div>
 
                     <div className="max-w-7xl mx-auto p-4 lg:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8">
-                        {/* Configuration Panel */}
+                        {/* Editor Config */}
                         <div className="lg:col-span-4 space-y-6">
                             <section className="bg-zinc-900 p-6 border-l-4 border-blue-500 shadow-2xl flex flex-col gap-6">
                                 
@@ -299,13 +295,13 @@
                                     </div>
                                     {suggestions.length > 0 && (
                                         <div className="absolute z-[400] w-full mt-1 bg-zinc-800 border-2 border-zinc-700 shadow-2xl max-h-60 overflow-y-auto custom-scrollbar animate-in">
-                                            {suggestions.map(s => <button key={s.id} onClick={() => selectSpecies(s)} className="w-full text-left px-4 py-3 hover:bg-zinc-700 text-sm border-b border-zinc-700 font-black uppercase flex items-center justify-between transition-colors"><span className="text-zinc-100">{String(s.names?.English || "Unknown")}</span><Icon name="right" className="w-4 h-4 text-zinc-500 group-hover:text-blue-500" /></button>)}
+                                            {suggestions.map(s => <button key={s.id} onClick={() => selectSpecies(s)} className="w-full text-left px-4 py-3 hover:bg-zinc-700 text-sm border-b border-zinc-700 font-black uppercase flex items-center justify-between group transition-colors"><span className="text-zinc-100">{String(s.names?.English || "Unknown")}</span><Icon name="right" className="w-4 h-4 text-zinc-500 group-hover:text-blue-500" /></button>)}
                                         </div>
                                     )}
                                 </div>
 
                                 {/* Configuration Panel - Unlocked upon Selection */}
-                                <div className={`flex flex-col gap-5 config-section ${selectedPoke ? 'config-ready' : 'config-locked'}`}>
+                                <div className={`flex flex-col gap-5 config-section ${selectedPoke ? 'config-visible' : 'config-hidden'}`}>
                                     <div className="h-px bg-zinc-800 w-full my-2"></div>
                                     
                                     {/* Costumes Dropdown */}
@@ -325,7 +321,7 @@
                                                             {String(asset.displayName)}
                                                         </button>
                                                     ))}
-                                                    <button onClick={() => { setSelectedCostume(null); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-zinc-800 text-[10px] font-black uppercase text-zinc-600 italic">Clear Selection</button>
+                                                    <button onClick={() => { setSelectedCostume(null); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-zinc-800 text-[10px] font-black uppercase text-zinc-600 italic">No Costume Selection</button>
                                                 </div>
                                             )}
                                         </div>
@@ -356,7 +352,7 @@
                                     {/* Stats & Toggles */}
                                     <div className="grid grid-cols-2 gap-2">
                                         {(selectedPoke?.shinyAvailable || selectedPoke?.shinyImage) && (
-                                            <button onClick={() => setIsShiny(!isShiny)} className={`flex items-center justify-center gap-2 py-3 border-2 transition-all ${isShiny ? 'bg-yellow-500/10 border-yellow-500 text-yellow-500' : 'bg-zinc-800 border-zinc-700 text-zinc-600'}`}>
+                                            <button onClick={() => setIsShiny(!isShiny)} className={`flex items-center justify-center gap-2 py-3 border-2 transition-all ${isShiny ? 'bg-yellow-500/10 border-yellow-500 text-yellow-500 shadow-[inset_0_0_10px_rgba(234,179,8,0.2)]' : 'bg-zinc-800 border-zinc-700 text-zinc-600'}`}>
                                                 <Icon name="sparkles" /> <span className="text-[10px] font-black uppercase tracking-widest">Shiny</span>
                                             </button>
                                         )}
@@ -395,7 +391,7 @@
                                             </div>
                                             <div className="grid grid-cols-4 gap-4 bg-zinc-900/50 p-4 border-2 border-zinc-800 min-h-[100px]">
                                                 {wantedList.map(item => <PokemonCard key={item.id} item={item} list="wanted" />)}
-                                                {wantedList.length === 0 && <div className="col-span-full h-24 flex items-center justify-center text-zinc-800 font-black uppercase text-xl tracking-[0.5em] border-4 border-dashed border-zinc-900">LIST EMPTY</div>}
+                                                {wantedList.length === 0 && <div className="col-span-full h-24 flex items-center justify-center text-zinc-700 font-black uppercase text-xl tracking-[0.5em] border-4 border-dashed border-zinc-900">LIST EMPTY</div>}
                                             </div>
                                         </div>
 
@@ -416,7 +412,7 @@
                                         <div className="flex gap-2 opacity-10">
                                             {[...Array(6)].map((_, i) => <div key={i} className="w-12 h-1 bg-white"></div>)}
                                         </div>
-                                        <p className="text-zinc-800 text-xs font-black uppercase tracking-[0.5em] italic">GO_CORE_API_V44.0</p>
+                                        <p className="text-zinc-800 text-xs font-black uppercase tracking-[0.5em] italic">GO_CORE_API_V45.0</p>
                                     </div>
                                 </div>
                             </div>
